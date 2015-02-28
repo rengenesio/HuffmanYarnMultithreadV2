@@ -3,17 +3,12 @@ package br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Stack;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Semaphore;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -185,7 +180,8 @@ public final class Encoder {
 		// Allocates an array of a memory array (one for each input split loaded in memory)
 		this.memory = new byte[this.numTotalChunksInMemory][inputSplitCollection.get(0).length + 20];
 		
-		// Enqueue initial actions (load some chunks in memory and process input splits that will not be loaded in memory) 
+		// Enqueue initial actions (load some chunks in memory and process input splits that will not be loaded in memory)
+		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits * 2);
 		for(int i = 0 ; i < this.numTotalInputSplits ; i++) {
 			if(i < Defines.maxChunksInMemory) {
 				this.globalThreadActionQueue.add(new Action(ActionToTake.LOADINMEMORY, inputSplitCollection.get(i)));	
