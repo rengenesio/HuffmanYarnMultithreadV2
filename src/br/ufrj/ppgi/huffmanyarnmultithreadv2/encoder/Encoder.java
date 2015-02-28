@@ -116,11 +116,11 @@ public final class Encoder {
 		
 		// Iterates each string that represents an input split
 		for(String inputSplitString : inputSplitStringCollection) {
-			// Split an input split string in 3 fields (part, offset and length)
+			// Split an input split string in 4 fields (file name, part, offset and length)
 			String[] inputSplitFieldsCollection = StringUtils.split(inputSplitString, '-');
 			
 			// Instantiates a new input split
-			InputSplit inputSplit = new InputSplit(Integer.parseInt(inputSplitFieldsCollection[0]), Long.parseLong(inputSplitFieldsCollection[1]), Integer.parseInt(inputSplitFieldsCollection[2]));
+			InputSplit inputSplit = new InputSplit(inputSplitFieldsCollection[0], Integer.parseInt(inputSplitFieldsCollection[0]), Long.parseLong(inputSplitFieldsCollection[1]), Integer.parseInt(inputSplitFieldsCollection[2]));
 			
 			// Add this input split to input split collection
 			this.inputSplitCollection.add(inputSplit);

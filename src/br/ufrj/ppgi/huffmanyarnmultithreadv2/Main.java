@@ -5,8 +5,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.decoder.Decoder;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.yarn.Client;
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.decoder.yarn.DecoderClient;
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.yarn.EncoderClient;
 
 
 public class Main {
@@ -44,7 +44,7 @@ public class Main {
 			} catch(Exception ex) { }
 				
 			startTime = System.nanoTime();
-			Client client = new Client(args);
+			EncoderClient client = new EncoderClient(args);
 			if (client.run()) { 
 				System.out.println("Compressão completa!");
 			}
@@ -68,7 +68,19 @@ public class Main {
 			long totalTime, startTime, endTime;
 			
 			startTime = System.nanoTime();
-			new Decoder(fileName);
+			DecoderClient client = new DecoderClient(args);
+			if (client.run()) { 
+				System.out.println("Compressão completa!");
+			}
+			else {
+				System.out.println("Erro durante a compressão");
+				endTime = System.nanoTime();
+				
+				totalTime = endTime - startTime;
+				
+				System.out.println(totalTime/1000000000.0 + " s (encoder)");
+				return;
+			}
 			endTime = System.nanoTime();
 			
 			totalTime = endTime - startTime;
