@@ -28,7 +28,7 @@ do
 	for k in `seq 1 $tests`
 	do
 		echo "Amostra$k"
-		#yarn jar huffmanyarnmultithread.jar $path_file/$j encoder
+		yarn jar huffmanyarnmultithread.jar $path_file/$j mode
 		echo
 	done
 	echo "-------------------------"
