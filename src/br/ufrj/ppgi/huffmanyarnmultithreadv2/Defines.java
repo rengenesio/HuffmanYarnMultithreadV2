@@ -2,7 +2,7 @@ package br.ufrj.ppgi.huffmanyarnmultithreadv2;
 
 
 public class Defines {
-	public static final String jobName = "HuffmanYarnMultithread"; 
+	public static final String jobName = "HuffmanYarnMultithreadV2"; 
 	
 	public static final int amMemory = 10;
 	public static final int amVCores = 1;
@@ -27,7 +27,7 @@ public class Defines {
 	
 	
 	
-	public static final String pathSuffix = ".yarnmultithreaddir/";
+	public static final String pathSuffix = ".yarnmultithreadv2dir/";
 	public static final String compressedPath = "compressed/";
 	public static final String compressedFileName = "part-";
 	public static final String codificationFileName = "codification";
