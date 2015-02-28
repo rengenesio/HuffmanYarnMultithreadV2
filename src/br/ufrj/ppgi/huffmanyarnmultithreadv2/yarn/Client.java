@@ -97,7 +97,7 @@ public class Client {
 		
 		// Copy the application master jar to the filesystem. Create a local resource to point to the destination jar path
 		LOG.info("Copying AppMaster jar from local filesystem and add to local environment");
-		addToLocalResources(fs, "huffmanyarnmultithread.jar", "job.jar", appId.toString(), localResources, null);
+		addToLocalResources(fs, "huffmanyarnmultithreadv2.jar", "job.jar", appId.toString(), localResources, null);
 		
 		// Set local resource info into app master container launch context
 		amContainer.setLocalResources(localResources);
@@ -210,7 +210,7 @@ public class Client {
 	}
 
 	private void addToLocalResources(FileSystem fs, String fileSrcPath, String fileDstPath, String appId, Map<String, LocalResource> localResources, String resources) throws IOException {
-		String suffix = "HuffmanYarnMultithread/" + appId + "/" + fileDstPath;
+		String suffix = "HuffmanYarnMultithreadV2/" + appId + "/" + fileDstPath;
 		Path dst = new Path(fs.getHomeDirectory(), suffix);
 		if (fileSrcPath == null) {
 			FSDataOutputStream ostream = null;

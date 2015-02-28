@@ -353,7 +353,7 @@ public class ApplicationMaster {
 		}
 		
 		private void addToLocalResources(FileSystem fs, String fileSrcPath, String fileDstPath, String appId, Map<String, LocalResource> localResources, String resources) throws IOException {
-			String suffix = "/user/admin/HuffmanYarnMultithread/" + appId + "/" + fileDstPath;
+			String suffix = "/user/admin/HuffmanYarnMultithreadV2/" + appId + "/" + fileDstPath;
 			Path dst = new Path(fs.getHomeDirectory(), suffix);
 			if (fileSrcPath == null) {
 				FSDataOutputStream ostream = null;
