@@ -120,7 +120,7 @@ public class Decoder {
 			String[] inputSplitFieldsCollection = StringUtils.split(inputSplitString, '-');
 			
 			// Instantiates a new input split
-			InputSplit inputSplit = new InputSplit(inputSplitFieldsCollection[0], Integer.parseInt(inputSplitFieldsCollection[0]), Long.parseLong(inputSplitFieldsCollection[1]), Integer.parseInt(inputSplitFieldsCollection[2]));
+			InputSplit inputSplit = new InputSplit(inputSplitFieldsCollection[0], Integer.parseInt(inputSplitFieldsCollection[1]), Long.parseLong(inputSplitFieldsCollection[2]), Integer.parseInt(inputSplitFieldsCollection[3]));
 			
 			// Add this input split to input split collection
 			this.inputSplitCollection.add(inputSplit);
