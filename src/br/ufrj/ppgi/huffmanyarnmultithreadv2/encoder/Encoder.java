@@ -68,7 +68,6 @@ public final class Encoder {
 	
 	// Queue to store sequencial id's (starts at 0) to threads (symbol count threads and encoder threads)
 	private Queue<Integer> symbolCountOrderedThreadIdQueue;
-	private Queue<Integer> encoderOrderedThreadIdQueue;
 	
 	// Queue to store input splits indicator (symbol count threads and encoder queues)
 	private Queue<Action> globalThreadActionQueue;
@@ -159,10 +158,8 @@ public final class Encoder {
 		
 		// Enqueue thread id's
 		symbolCountOrderedThreadIdQueue = new ArrayBlockingQueue<Integer>(this.numTotalThreads);
-		encoderOrderedThreadIdQueue = new ArrayBlockingQueue<Integer>(this.numTotalThreads);
 		for(int i = 0 ; i < this.numTotalThreads ; i++) {
 			symbolCountOrderedThreadIdQueue.add(i);
-			encoderOrderedThreadIdQueue.add(i);
 		}
 		
 		// Ideal number of chunks in memory (a chunk in memory per input split)
@@ -181,7 +178,7 @@ public final class Encoder {
 		this.memory = new byte[this.numTotalChunksInMemory][inputSplitCollection.get(0).length + 20];
 		
 		// Enqueue initial actions (load some chunks in memory and process input splits that will not be loaded in memory)
-		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits * 2);
+		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits + 2);
 		for(int i = 0 ; i < this.numTotalInputSplits ; i++) {
 			if(i < Defines.maxChunksInMemory) {
 				this.globalThreadActionQueue.add(new Action(ActionToTake.LOADINMEMORY, inputSplitCollection.get(i)));	
@@ -496,198 +493,152 @@ public final class Encoder {
 		    // Deserializes codification received
 		    this.codificationArray = SerializationUtility.deserializeCodificationArray(serializedCodification);
 		}
+
+		// Enqueue compress actions
+		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits + 2);
+		for(int i = 0 ; i < this.numTotalInputSplits ; i++) {
+			this.globalThreadActionQueue.add(new Action(ActionToTake.PROCESS, inputSplitCollection.get(i)));
+		}
 		
-		System.out.println("Tudo lindo!!");
+		// Collection to store the spawned threads
+		threadCollection = new ArrayList<Thread>();
+		for(int i = 0 ; i < numTotalThreads ; i++) {
+			Thread thread = new Thread(new Runnable() {
+				
+				// File access variables
+				FileSystem fsInput;
+				Path path;
+				FSDataInputStream fInput;
+				
+				@Override
+				public void run() {
+					try {
+						this.fsInput = FileSystem.get(configuration);
+						this.path = new Path(fileName);
+						this.fInput = fsInput.open(path);
+					} catch (IOException e) {
+						e.printStackTrace();
+						System.err.println("Exception abrindo o ponteiro para o arquivo!");
+					}
+					
+					// Thread loop until input split metadata queue is empty
+					while(globalThreadActionQueue.isEmpty() == false) {
+						// Takes an action from the action queue
+						Action action = globalThreadActionQueue.poll();
+
+						try {
+							huffmanCompressor(action.inputSplit);
+						} catch (Exception e) {
+							e.printStackTrace();
+							System.err.println("Exception comprimindo o arquivo!");
+						}
+					}
+				}
+				
+				public void huffmanCompressor(InputSplit inputSplit) throws IOException {
+					// Index of this input split
+					int index = inputSplitCollection.indexOf(inputSplit);
+					
+					// Output
+			    	FileSystem fsOutput = FileSystem.get(configuration);
+					Path pathOutput = new Path(fileName + ".yarnmultithreaddir/compressed/part-" + String.format("%08d", inputSplit.part));
+					FSDataOutputStream fOutput = fsOutput.create(pathOutput);
+					
+					BitSet bufferBitSet = null;
+					byte bits = 0;
+					if(index > numTotalChunksInMemory) { // Split is in disk
+						// Buffer to store data read from disk
+						byte[] buffer = new byte[Defines.readBufferSize];
+						
+						int readBytes = -1;
+						int totalReadBytes = 0;
+						bufferBitSet = new BitSet();
+						while(totalReadBytes < inputSplit.length) {
+							readBytes = fInput.read(inputSplit.offset + totalReadBytes, buffer, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
+							
+					        for (int i = 0; i < readBytes ; i++) {
+					            for (short j = 0; j < codificationArray.length ; j++) {
+					                if (buffer[i] == codificationArray[j].symbol) {
+					                    for (byte k = 0; k < codificationArray[j].size; k++) {
+					                        if (codificationArray[j].code[k] == 1)
+					                                bufferBitSet.setBit(bits, true);
+					                        else
+					                                bufferBitSet.setBit(bits, false);
+
+					                        if (++bits == 8) {
+					                                fOutput.write(bufferBitSet.b);
+					                        		bufferBitSet = new BitSet();
+					                                bits = 0;
+					                        }
+					                    }
+					                    break;
+					                }
+					            }
+					        }
+							totalReadBytes += readBytes;
+						}
+					}
+					else { // Split is in memory
+						bufferBitSet = new BitSet();
+				        for (int i = 0; i < inputSplit.length ; i++) {
+				            for (short j = 0; j < codificationArray.length ; j++) {
+				                if (memory[index][i] == codificationArray[j].symbol) {
+				                    for (byte k = 0; k < codificationArray[j].size; k++) {
+				                        if (codificationArray[j].code[k] == 1)
+				                                bufferBitSet.setBit(bits, true);
+				                        else
+				                                bufferBitSet.setBit(bits, false);
+
+				                        if (++bits == 8) {
+				                                fOutput.write(bufferBitSet.b);
+				                        		bufferBitSet = new BitSet();
+				                                bits = 0;
+				                        }
+				                    }
+				                    break;
+				                }
+				            }
+				        }
+					}
+					
+					// Add EOF
+					for (short i = 0; i < codificationArray.length ; i++) {
+		                if (codificationArray[i].symbol == 0) {
+		                	for (byte j = 0; j < codificationArray[i].size; j++) {
+		                        if (codificationArray[i].code[j] == 1)
+		                                bufferBitSet.setBit(bits, true);
+		                        else
+		                                bufferBitSet.setBit(bits, false);
+
+		                        if (++bits == 8) {
+		                                fOutput.write(bufferBitSet.b);
+		                        		bufferBitSet = new BitSet();
+		                                bits = 0;
+		                        }
+		                    }
+		                    break;
+		                }
+					}
+					
+			        if (bits != 0) {
+			        	fOutput.write(bufferBitSet.b);
+			        }
+
+			        fOutput.close();
+				}
+			});
+			
+			// Add thread to the collection
+			threadCollection.add(thread);
+			
+			// Starts thread
+			thread.start();
+		}
 		
-//		// Collection to store the spawned threads
-//		threadCollection = new ArrayList<Thread>();
-//		for(int i = 0 ; i < numTotalThreads ; i++) {
-//			Thread thread = new Thread(new Runnable() {
-//				
-//				// Thread id get from queue
-//				int threadId;
-//				
-//				@Override
-//				public void run() {
-//					// Mutex to access thread id queue
-//					Semaphore threadIdQueueSemaphore = new Semaphore(1);
-//										
-//					// Try enter thread id queue mutex
-//					try {
-//						threadIdQueueSemaphore.acquire();
-//					} catch (InterruptedException e) {
-//						e.printStackTrace();
-//					}
-//
-//					// Take an id from queue
-//					this.threadId = encoderOrderedThreadIdQueue.poll();
-//
-//					// Release thread id queue mutex
-//					threadIdQueueSemaphore.release();
-//					
-//					// Indicates if thread will read only disk chunks (only if has some disk part and thread id = 0) 
-//					boolean diskThread = false;
-//					if(this.threadId == 0 && encoderDiskInputSplitMetadataQueue.isEmpty() == false) {
-//						diskThread = true;
-//					}
-//					
-//					// Mutex to access memory input split metadata queue					
-//					Semaphore memoryInputSplitMetadataQueueSemaphore = new Semaphore(1);
-//					
-//					// Thread loop until input split metadata queue is empty
-//					while(true) {
-//						InputSplit inputSplitToProcess = null;
-//						
-//						if(diskThread == false) {
-//							// Thread will process memory input splits
-//							
-//							// Try enter memory input split metadata queue mutex 
-//							try {
-//								memoryInputSplitMetadataQueueSemaphore.acquire();
-//							} catch (InterruptedException e) {
-//								e.printStackTrace();
-//							}
-//
-//							// Take an input split metadata to process
-//							inputSplitToProcess = encoderMemoryInputSplitMetadataQueue.poll();
-//
-//							// Release memory input split metadata queue mutex
-//							memoryInputSplitMetadataQueueSemaphore.release();
-//							
-//							// Thread returns if memory input split metadata queue is empty 
-//							if(inputSplitToProcess == null) { return; }
-//						}
-//						else {
-//							// Thread will process memory input splits (no mutex, only 1 thread access the disk input split metadata queue)
-//							
-//							// Take an input split metadata to process
-//							inputSplitToProcess = encoderDiskInputSplitMetadataQueue.poll();
-//							
-//							// Thread returns if disk input split metadata queue is empty
-//							if(inputSplitToProcess == null) { return; }
-//						}
-//
-//						try {
-//							huffmanCompressor(inputSplitToProcess);
-//						} catch (IOException e) {
-//							e.printStackTrace();
-//						}
-//					}
-//				}
-//				
-//				
-//				public void huffmanCompressor(InputSplit inputSplit) throws IOException {
-//					// Try access a memory index to this split 
-//					Integer memoryIndex = memoryPartMap.get(inputSplit.part);
-//					
-//					// Output
-//			    	FileSystem fsOutput = FileSystem.get(configuration);
-//					Path pathOutput = new Path(fileName + ".yarnmultithreaddir/compressed/part-" + String.format("%08d", inputSplit.part));
-//					FSDataOutputStream fOutput = fsOutput.create(pathOutput);
-//					
-//					BitSet bufferBitSet = null;
-//					byte bits = 0;
-//					if(memoryIndex == null) {
-//						// Split is in disk
-//						
-//						FileSystem fsInput = FileSystem.get(configuration);
-//						Path pathInput = new Path(fileName);
-//						
-//						FSDataInputStream fInput = fsInput.open(pathInput);
-//						
-//						byte[] buffer = new byte[Defines.readBufferSize];
-//						
-//						int readBytes = -1;
-//						int totalReadBytes = 0;
-//						bufferBitSet = new BitSet();
-//						while(totalReadBytes < inputSplit.length) {
-//							readBytes = fInput.read(inputSplit.offset + totalReadBytes, buffer, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
-//							
-//					        for (int i = 0; i < readBytes ; i++) {
-//					            for (short j = 0; j < codificationArray.length ; j++) {
-//					                if (buffer[i] == codificationArray[j].symbol) {
-//					                    for (byte k = 0; k < codificationArray[j].size; k++) {
-//					                        if (codificationArray[j].code[k] == 1)
-//					                                bufferBitSet.setBit(bits, true);
-//					                        else
-//					                                bufferBitSet.setBit(bits, false);
-//
-//					                        if (++bits == 8) {
-//					                                fOutput.write(bufferBitSet.b);
-//					                        		bufferBitSet = new BitSet();
-//					                                bits = 0;
-//					                        }
-//					                    }
-//					                    break;
-//					                }
-//					            }
-//					        }
-//							totalReadBytes += readBytes;
-//						}
-//					}
-//					else {
-//						// Split is in memory
-//						
-//						bufferBitSet = new BitSet();
-//				        for (int i = 0; i < inputSplit.length ; i++) {
-//				            for (short j = 0; j < codificationArray.length ; j++) {
-//				                if (memory[memoryIndex][i] == codificationArray[j].symbol) {
-//				                    for (byte k = 0; k < codificationArray[j].size; k++) {
-//				                        if (codificationArray[j].code[k] == 1)
-//				                                bufferBitSet.setBit(bits, true);
-//				                        else
-//				                                bufferBitSet.setBit(bits, false);
-//
-//				                        if (++bits == 8) {
-//				                                fOutput.write(bufferBitSet.b);
-//				                        		bufferBitSet = new BitSet();
-//				                                bits = 0;
-//				                        }
-//				                    }
-//				                    break;
-//				                }
-//				            }
-//				        }
-//					}
-//					
-//					// Add EOF
-//					for (short i = 0; i < codificationArray.length ; i++) {
-//		                if (codificationArray[i].symbol == 0) {
-//		                	for (byte j = 0; j < codificationArray[i].size; j++) {
-//		                        if (codificationArray[i].code[j] == 1)
-//		                                bufferBitSet.setBit(bits, true);
-//		                        else
-//		                                bufferBitSet.setBit(bits, false);
-//
-//		                        if (++bits == 8) {
-//		                                fOutput.write(bufferBitSet.b);
-//		                        		bufferBitSet = new BitSet();
-//		                                bits = 0;
-//		                        }
-//		                    }
-//		                    break;
-//		                }
-//					}
-//					
-//			        if (bits != 0) {
-//			        	fOutput.write(bufferBitSet.b);
-//			        }
-//
-//			        fOutput.close();
-//				}
-//			});
-//			
-//			// Add thread to the collection
-//			threadCollection.add(thread);
-//			
-//			// Starts thread
-//			thread.start();
-//		}
-//		
-//		// Wait until all threads finish their jobs
-//		for(Thread thread : threadCollection) {
-//			thread.join();
-//		}
+		// Wait until all threads finish their jobs
+		for(Thread thread : threadCollection) {
+			thread.join();
+		}
  	}
 
 
