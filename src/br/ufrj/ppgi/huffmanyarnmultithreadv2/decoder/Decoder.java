@@ -169,6 +169,8 @@ public class Decoder {
 					Path pathOut = new Path(fileName + Defines.pathSuffix + Defines.decompressedSplitsPath + inputSplit.fileName);
 					FSDataOutputStream outputStream = fileSystem.create(pathOut);
 					
+					System.out.println("PathOut: " + pathOut.toString());
+					
 					// Buffer to store data to be written in disk
 					byte[] bufferOutput = new byte[Defines.writeBufferSize];
 					int bufferOutputIndex = 0;
@@ -179,16 +181,16 @@ public class Decoder {
 					int readBytes = 0;
 					int totalReadBytes = 0;
 					int codificationArrayIndex = 0;
-//					do {
-//						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
-//
-//						for (int i = 0; i < readBytes * 8 ; i++) {
-//							codificationArrayIndex <<= 1;
-//							if (BitUtility.checkBit(bufferInput, i) == false)
-//								codificationArrayIndex += 1;
-//							else
-//								codificationArrayIndex += 2;
-//
+					do {
+						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
+
+						for (int i = 0; i < readBytes * 8 ; i++) {
+							codificationArrayIndex <<= 1;
+							if (BitUtility.checkBit(bufferInput, i) == false)
+								codificationArrayIndex += 1;
+							else
+								codificationArrayIndex += 2;
+
 //							if (codificationArrayElementUsed[codificationArrayIndex]) {
 //								if (codificationArrayElementSymbol[codificationArrayIndex] != 0) {
 //									byte symbol = codificationArrayElementSymbol[codificationArrayIndex];
@@ -210,8 +212,9 @@ public class Decoder {
 //									return;
 //								}
 //							}
-//						}
-//					} while (readBytes > 0);
+						}
+					} while (readBytes > 0);
+					System.out.println(totalReadBytes);
 				}
 			});
 			
