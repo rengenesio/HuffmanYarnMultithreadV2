@@ -16,7 +16,7 @@ public class BitUtility {
 		int byteIndex = pos / 8;
 		pos = 7 - (pos % 8);
 		
-		int bit = byteArray[byteIndex] & (1 << 7 - pos);
+		int bit = byteArray[byteIndex] & (1 << pos);
 		if (bit > 0)
 			return true;
 
