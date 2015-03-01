@@ -191,8 +191,9 @@ public class Decoder {
 								if (codificationArrayElementSymbol[codificationArrayIndex] != 0) {
 									byte symbol = codificationArrayElementSymbol[codificationArrayIndex];
 									bufferOutput[bufferOutputIndex] = symbol;
+									
 									bufferOutputIndex++;
-									if(bufferOutputIndex > Defines.writeBufferSize) {
+									if(bufferOutputIndex >= Defines.writeBufferSize) {
 										outputStream.write(bufferOutput, 0, Defines.writeBufferSize);
 										bufferOutputIndex = 0;
 									}
