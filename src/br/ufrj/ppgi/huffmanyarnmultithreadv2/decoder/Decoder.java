@@ -163,6 +163,8 @@ public class Decoder {
 				public void huffmanDecompressor(InputSplit inputSplit) throws IOException {
 					Path pathIn = new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath + inputSplit.fileName);
 					FSDataInputStream inputStream = fileSystem.open(pathIn);
+					
+					System.out.println("PathIn: " + pathIn.toString());
 										
 					Path pathOut = new Path(fileName + Defines.pathSuffix + Defines.decompressedSplitsPath + inputSplit.fileName);
 					FSDataOutputStream outputStream = fileSystem.create(pathOut);
@@ -177,7 +179,7 @@ public class Decoder {
 					int readBytes = 0;
 					int totalReadBytes = 0;
 					int codificationArrayIndex = 0;
-					while (inputStream.available() > 0) {
+					do {
 						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
 
 						for (int i = 0; i < readBytes * 8 ; i++) {
@@ -194,7 +196,7 @@ public class Decoder {
 									
 									bufferOutputIndex++;
 									if(bufferOutputIndex >= Defines.writeBufferSize) {
-										outputStream.write(bufferOutput, 0, Defines.writeBufferSize);
+										outputStream.write(bufferOutput, 0, bufferOutputIndex);
 										bufferOutputIndex = 0;
 									}
 									codificationArrayIndex = 0;
@@ -209,7 +211,7 @@ public class Decoder {
 								}
 							}
 						}
-					}
+					} while (readBytes > 0);
 				}
 			});
 			
