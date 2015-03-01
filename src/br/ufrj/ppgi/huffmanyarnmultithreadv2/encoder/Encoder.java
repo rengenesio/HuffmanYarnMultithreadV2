@@ -17,6 +17,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.BitUtility;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.Defines;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.InputSplit;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.SerializationUtility;
@@ -505,22 +506,13 @@ public final class Encoder {
 		for(int i = 0 ; i < numTotalThreads ; i++) {
 			Thread thread = new Thread(new Runnable() {
 				
-				// File access variables
-				FileSystem fsInput;
-				Path path;
-				FSDataInputStream fInput;
+				// File access variable
+				FileSystem fileSystem = FileSystem.get(configuration);
+				Path pathIn = new Path(fileName);
+				FSDataInputStream inputStream = fileSystem.open(pathIn);
 				
 				@Override
 				public void run() {
-					try {
-						this.fsInput = FileSystem.get(configuration);
-						this.path = new Path(fileName);
-						this.fInput = fsInput.open(path);
-					} catch (IOException e) {
-						e.printStackTrace();
-						System.err.println("Exception abrindo o ponteiro para o arquivo!");
-					}
-					
 					// Thread loop until input split metadata queue is empty
 					while(globalThreadActionQueue.isEmpty() == false) {
 						// Takes an action from the action queue
@@ -539,35 +531,34 @@ public final class Encoder {
 					// Index of this input split
 					int index = inputSplitCollection.indexOf(inputSplit);
 					
-					// Output
-			    	FileSystem fsOutput = FileSystem.get(configuration);
-					Path pathOutput = new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath + Defines.compressedSplitFileName + String.format("%08d", inputSplit.part));
-					FSDataOutputStream fOutput = fsOutput.create(pathOutput);
+					Path pathOut = new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath + Defines.compressedSplitFileName + String.format("%08d", inputSplit.part));
+					FSDataOutputStream outputStream = fileSystem.create(pathOut);
 					
-					BitSet bufferBitSet = null;
-					byte bits = 0;
+					// Buffer to store data to be written in disk
+					byte[] bufferOutput = new byte[Defines.writeBufferSize];
+					int maxBitsInBufferOutput = Defines.writeBufferSize * 8;
+					
+					int bits = 0;
 					if(index > numTotalChunksInMemory) { // Split is in disk
 						// Buffer to store data read from disk
-						byte[] buffer = new byte[Defines.readBufferSize];
+						byte[] bufferInput = new byte[Defines.readBufferSize];
 						
-						int readBytes = -1;
+						int readBytes = 0;
 						int totalReadBytes = 0;
-						bufferBitSet = new BitSet();
 						while(totalReadBytes < inputSplit.length) {
-							readBytes = fInput.read(inputSplit.offset + totalReadBytes, buffer, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
+							readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
 							
 					        for (int i = 0; i < readBytes ; i++) {
 					            for (short j = 0; j < codificationArray.length ; j++) {
-					                if (buffer[i] == codificationArray[j].symbol) {
+					                if (bufferInput[i] == codificationArray[j].symbol) {
 					                    for (byte k = 0; k < codificationArray[j].size; k++) {
 					                        if (codificationArray[j].code[k] == 1)
-					                                bufferBitSet.setBit(bits, true);
+				                                BitUtility.setBit(bufferOutput, bits, true);
 					                        else
-					                                bufferBitSet.setBit(bits, false);
+					                        	BitUtility.setBit(bufferOutput, bits, false);
 
-					                        if (++bits == 8) {
-					                                fOutput.write(bufferBitSet.b);
-					                        		bufferBitSet = new BitSet();
+					                        if (++bits == maxBitsInBufferOutput) {
+					                                outputStream.write(bufferOutput);
 					                                bits = 0;
 					                        }
 					                    }
@@ -579,19 +570,17 @@ public final class Encoder {
 						}
 					}
 					else { // Split is in memory
-						bufferBitSet = new BitSet();
 				        for (int i = 0; i < inputSplit.length ; i++) {
-				            for (short j = 0; j < codificationArray.length ; j++) {
+				        	for (short j = 0; j < codificationArray.length ; j++) {
 				                if (memory[index][i] == codificationArray[j].symbol) {
 				                    for (byte k = 0; k < codificationArray[j].size; k++) {
-				                        if (codificationArray[j].code[k] == 1)
-				                                bufferBitSet.setBit(bits, true);
+				                    	if (codificationArray[j].code[k] == 1)
+			                                BitUtility.setBit(bufferOutput, bits, true);
 				                        else
-				                                bufferBitSet.setBit(bits, false);
+				                        	BitUtility.setBit(bufferOutput, bits, false);
 
-				                        if (++bits == 8) {
-				                                fOutput.write(bufferBitSet.b);
-				                        		bufferBitSet = new BitSet();
+				                        if (++bits == maxBitsInBufferOutput) {
+				                                outputStream.write(bufferOutput);
 				                                bits = 0;
 				                        }
 				                    }
@@ -605,14 +594,13 @@ public final class Encoder {
 					for (short i = 0; i < codificationArray.length ; i++) {
 		                if (codificationArray[i].symbol == 0) {
 		                	for (byte j = 0; j < codificationArray[i].size; j++) {
-		                        if (codificationArray[i].code[j] == 1)
-		                                bufferBitSet.setBit(bits, true);
+		                    	if (codificationArray[i].code[j] == 1)
+	                                BitUtility.setBit(bufferOutput, bits, true);
 		                        else
-		                                bufferBitSet.setBit(bits, false);
+		                        	BitUtility.setBit(bufferOutput, bits, false);
 
-		                        if (++bits == 8) {
-		                                fOutput.write(bufferBitSet.b);
-		                        		bufferBitSet = new BitSet();
+		                        if (++bits == maxBitsInBufferOutput) {
+		                                outputStream.write(bufferOutput);
 		                                bits = 0;
 		                        }
 		                    }
@@ -621,10 +609,10 @@ public final class Encoder {
 					}
 					
 			        if (bits != 0) {
-			        	fOutput.write(bufferBitSet.b);
+			        	outputStream.write(bufferOutput, 0, (bits / 8 + 1));
 			        }
 
-			        fOutput.close();
+			        outputStream.close();
 				}
 			});
 			

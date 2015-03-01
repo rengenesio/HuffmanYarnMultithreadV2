@@ -17,6 +17,7 @@ public class Defines {
 	// Compression performance defines
 	public static final int maxThreads = containerVCores * 2;
 	public static final int readBufferSize = 16384;
+	public static final int writeBufferSize = 16384;
 	public static final int maxChunksInMemory = 16;
 	
 	// Path defines

@@ -30,10 +30,10 @@ public class Decoder {
 	private Configuration configuration;
 	
 	// (YARN) Indicates if this container is the master container
-	private boolean containerIsMaster = false;
+	//private boolean containerIsMaster = false;
 	
 	// (YARN) Total executing containers 
-	private int numTotalContainers;
+	//private int numTotalContainers;
 		
 	// File to be processed
 	private String fileName;
@@ -64,16 +64,16 @@ public class Decoder {
 	// ------------------ MASTER CONTAINER PROPERTIES ------------------ //
 
 	// (YARN) Master stores slaves containers listening ports
-	private HostPortPair[] containerPortPairArray;
+	//private HostPortPair[] containerPortPairArray;
 	
 
 	// ------------------ SLAVE CONTAINER PROPERTIES ------------------- //
 	
 	// (YARN) Master container hostname
-	private String masterContainerHostName;
+	//private String masterContainerHostName;
 	
 	// Port where slave container will listen for master connection
-	private int slavePort;
+	//private int slavePort;
 	
 	
 	
@@ -102,9 +102,9 @@ public class Decoder {
 			this.inputSplitCollection.add(inputSplit);
 
 			// The master container will be the one with the part 0
-			if(inputSplit.part == 0) {
-				this.containerIsMaster = true;
-			}
+			//if(inputSplit.part == 0) {
+			//	this.containerIsMaster = true;
+			//}
 			
 //
 			System.out.println(inputSplit);
@@ -113,15 +113,11 @@ public class Decoder {
 		// Sets number of total input splits for this container
 		this.numTotalInputSplits = this.inputSplitCollection.size();
 		
-		// Reads the master container hostname from command line args
-		this.masterContainerHostName = args[2];
+		//// Reads the master container hostname from command line args
+		//this.masterContainerHostName = args[2];
 		
-		// Reads the number of total containers from command line args
-		this.numTotalContainers = Integer.parseInt(args[3]);
-		
-		// Initializes the queues with  
-		//this.symbolCountInputSplitMetadataQueue = new ArrayBlockingQueue<InputSplit>(this.numTotalInputSplits, true);
-		//this.encoderInputSplitMetadataQueue = new ArrayBlockingQueue<InputSplit>(this.numTotalInputSplits, true);
+		//// Reads the number of total containers from command line args
+		//this.numTotalContainers = Integer.parseInt(args[3]);
 	}
 	
 	public void decode() throws IOException, InterruptedException {
@@ -170,25 +166,38 @@ public class Decoder {
 										
 					Path pathOut = new Path(fileName + Defines.pathSuffix + Defines.decompressedSplitsPath + inputSplit.fileName);
 					FSDataOutputStream outputStream = fileSystem.create(pathOut);
-
-					byte[] buffer = new byte[Defines.readBufferSize];
 					
-					int index = 0;
+					// Buffer to store data to be written in disk
+					byte[] bufferOutput = new byte[Defines.writeBufferSize];
+					int bufferOutputIndex = 0;
+					
+					// Buffer to store read from disk
+					byte[] bufferInput = new byte[Defines.readBufferSize];
+
+					int readBytes = 0;
+					int codificationArrayIndex = 0;
 					while (inputStream.available() > 0) {
-						int readBytes = inputStream.read(buffer, 0, Defines.readBufferSize);
+						readBytes = inputStream.read(bufferInput, 0, inputSplit.length);
 
 						for (int i = 0; i < readBytes * 8 ; i++) {
-							index <<= 1;
-							if (BitUtility.checkBit(buffer, i) == false)
-								index += 1;
+							codificationArrayIndex <<= 1;
+							if (BitUtility.checkBit(bufferInput, i) == false)
+								codificationArrayIndex += 1;
 							else
-								index += 2;
+								codificationArrayIndex += 2;
 
-							if (codificationArrayElementUsed[index]) {
-								if (codificationArrayElementSymbol[index] != 0) {
-									outputStream.write(codificationArrayElementSymbol[index]);
-									index = 0;
+							if (codificationArrayElementUsed[codificationArrayIndex]) {
+								if (codificationArrayElementSymbol[codificationArrayIndex] != 0) {
+									bufferOutput[bufferOutputIndex++] = codificationArrayElementSymbol[codificationArrayIndex];
+									if(bufferOutputIndex > Defines.writeBufferSize) {
+										outputStream.write(bufferOutput, 0, Defines.writeBufferSize);
+										bufferOutputIndex = 0;
+									}
 								} else {
+									if(bufferOutputIndex > 0) {
+										outputStream.write(bufferOutput, 0, bufferOutputIndex);
+									}
+									
 									outputStream.close();
 									inputStream.close();
 									return;

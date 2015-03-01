@@ -5,13 +5,13 @@ import br.ufrj.ppgi.huffmanyarnmultithreadv2.BitUtility;
 public class BitUtilityTests {
 
 	public static boolean checkBitTest() throws Exception {
-		System.out.println("Testando utilitário de bits");
-		
-		
+		System.out.println("Testando BitUtility.checkBit()");
+				
 		byte[] byteArray = new byte[5];
+		
 		byteArray[0] = 10; // 00001010
 		byteArray[1] = 38; // 00100110
-		byteArray[2] = 15; // 00000111
+		byteArray[2] = 15; // 00001111
 		byteArray[3] = -1; // 11111111
 		byteArray[4] = 98; // 01100010
 		
@@ -35,7 +35,7 @@ public class BitUtilityTests {
 		if (BitUtility.checkBit(byteArray, 17) != false) throw new Exception("Erro checando bit! " + 17);
 		if (BitUtility.checkBit(byteArray, 18) != false) throw new Exception("Erro checando bit! " + 18);
 		if (BitUtility.checkBit(byteArray, 19) != false) throw new Exception("Erro checando bit! " + 19);
-		if (BitUtility.checkBit(byteArray, 20) != false) throw new Exception("Erro checando bit! " + 20);
+		if (BitUtility.checkBit(byteArray, 20) != true) throw new Exception("Erro checando bit! " + 20);
 		if (BitUtility.checkBit(byteArray, 21) != true) throw new Exception("Erro checando bit! " + 21);
 		if (BitUtility.checkBit(byteArray, 22) != true) throw new Exception("Erro checando bit! " + 22);
 		if (BitUtility.checkBit(byteArray, 23) != true) throw new Exception("Erro checando bit! " + 23);
@@ -55,8 +55,62 @@ public class BitUtilityTests {
 		if (BitUtility.checkBit(byteArray, 37) != false) throw new Exception("Erro checando bit! " + 37);
 		if (BitUtility.checkBit(byteArray, 38) != true) throw new Exception("Erro checando bit! " + 38);
 		if (BitUtility.checkBit(byteArray, 39) != false) throw new Exception("Erro checando bit! " + 39);
+		
+		return true;
+	}
 	
-	
+	public static boolean setBitTest() throws Exception {
+		System.out.println("Testando BitUtility.setBit()");
+		
+		byte[] byteArray = new byte[5];
+		
+		BitUtility.setBit(byteArray, 0, false);
+		BitUtility.setBit(byteArray, 1, false);
+		BitUtility.setBit(byteArray, 2, false);
+		BitUtility.setBit(byteArray, 3, false);
+		BitUtility.setBit(byteArray, 4, true);
+		BitUtility.setBit(byteArray, 5, false);
+		BitUtility.setBit(byteArray, 6, true);
+		BitUtility.setBit(byteArray, 7, false);
+		BitUtility.setBit(byteArray, 8, false);
+		BitUtility.setBit(byteArray, 9, false);
+		BitUtility.setBit(byteArray, 10, true);
+		BitUtility.setBit(byteArray, 11, false);
+		BitUtility.setBit(byteArray, 12, false);
+		BitUtility.setBit(byteArray, 13, true);
+		BitUtility.setBit(byteArray, 14, true);
+		BitUtility.setBit(byteArray, 15, false);
+		BitUtility.setBit(byteArray, 16, false);
+		BitUtility.setBit(byteArray, 17, false);
+		BitUtility.setBit(byteArray, 18, false);
+		BitUtility.setBit(byteArray, 19, false);
+		BitUtility.setBit(byteArray, 20, true);
+		BitUtility.setBit(byteArray, 21, true);
+		BitUtility.setBit(byteArray, 22, true);
+		BitUtility.setBit(byteArray, 23, true);
+		BitUtility.setBit(byteArray, 24, true);
+		BitUtility.setBit(byteArray, 25, true);
+		BitUtility.setBit(byteArray, 26, true);
+		BitUtility.setBit(byteArray, 27, true);
+		BitUtility.setBit(byteArray, 28, true);
+		BitUtility.setBit(byteArray, 29, true);
+		BitUtility.setBit(byteArray, 30, true);
+		BitUtility.setBit(byteArray, 31, true);
+		BitUtility.setBit(byteArray, 32, false);
+		BitUtility.setBit(byteArray, 33, true);
+		BitUtility.setBit(byteArray, 34, true);
+		BitUtility.setBit(byteArray, 35, false);
+		BitUtility.setBit(byteArray, 36, false);
+		BitUtility.setBit(byteArray, 37, false);
+		BitUtility.setBit(byteArray, 38, true);
+		BitUtility.setBit(byteArray, 39, false);	
+		
+		if(byteArray[0] != 10) return false; // 00001010
+		if(byteArray[1] != 38) return false; // 00100110
+		if(byteArray[2] != 15) return false; // 00001111
+		if(byteArray[3] != -1) return false; // 11111111
+		if(byteArray[4] != 98) return false; // 01100010
+		
 		return true;
 	}
 

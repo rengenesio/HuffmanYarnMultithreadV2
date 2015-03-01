@@ -11,6 +11,10 @@ public class TddMain {
 		if(BitUtilityTests.checkBitTest()) {
 			System.out.println("Testes de checar os bits ok!!");
 		}
+		
+		if(BitUtilityTests.setBitTest()) {
+			System.out.println("Testes de setar os bits ok!!");
+		}
 	
 	}
 }
