@@ -4,12 +4,11 @@ package br.ufrj.ppgi.huffmanyarnmultithreadv2.decoder;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -17,11 +16,9 @@ import br.ufrj.ppgi.huffmanyarnmultithreadv2.Defines;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.InputSplit;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.SerializationUtility;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Action;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.BitSet;
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Action.ActionToTake;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Codification;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Encoder;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.HostPortPair;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.NodeArray;
 
 
 public class Decoder {
@@ -45,29 +42,11 @@ public class Decoder {
 	// Total input splits for container
 	private int numTotalInputSplits = 0;
 	
-	// Array of byte arrays (each byte array represents a input split byte sequence) 
-	private byte[][] memory;
-	
-	// Container total frequency array
-	private long[] containerTotalFrequencyArray;
-	
-	// Matrix to store each thread's frequency array
-	private long[][] frequencyMatrix;
-	
-	// Número de símbolos que o container encontrou
-	private short symbols = 0;
-	
 	// Array with Huffman codes
 	private Codification[] codificationArray;
 	
 	// Total threads to be spawn
 	private int numTotalThreads = 1;
-	
-	// Total chunks to be loaded in memory
-	private int numTotalChunksInMemory = 0;
-	
-	// Queue to store sequencial id's (starts at 0) to threads (symbol count threads and encoder threads)
-	private Queue<Integer> symbolCountOrderedThreadIdQueue;
 	
 	// Queue to store input splits indicator (symbol count threads and encoder queues)
 	private Queue<Action> globalThreadActionQueue;
@@ -75,22 +54,17 @@ public class Decoder {
 	int loadedChunks = 0;
 	boolean memoryFull = false;
 	
-	//private Queue<InputSplit> symbolCountInputSplitMetadataQueue;
-	//private Queue<InputSplit> encoderInputSplitMetadataQueue;
-	
+	byte max_code = 0;
+	byte[] codificationArrayElementSymbol;
+	boolean[] codificationArrayElementUsed;
+
 
 	// ------------------ MASTER CONTAINER PROPERTIES ------------------ //
-	
+
 	// (YARN) Master stores slaves containers listening ports
 	private HostPortPair[] containerPortPairArray;
 	
-	// Total containers frequency array sum
-	private long[] totalFrequencyArray;
-	
-	// Huffman's node array
-	private NodeArray nodeArray;
-	
-	
+
 	// ------------------ SLAVE CONTAINER PROPERTIES ------------------- //
 	
 	// (YARN) Master container hostname
@@ -148,97 +122,156 @@ public class Decoder {
 		//this.encoderInputSplitMetadataQueue = new ArrayBlockingQueue<InputSplit>(this.numTotalInputSplits, true);
 	}
 	
-//	public void fileToCodification() throws IOException {
-//		FileSystem fs = FileSystem.get(new Configuration());
-//		FSDataInputStream f = fs.open(cb);
+	public void decode() throws IOException, InterruptedException {
+		fileToCodification();
+		codeToTreeArray();
+		
+		// Ideal thread number (a thread per input split)
+		int idealNumThreads = this.numTotalInputSplits;
+
+		// Limitates the thread number to the max for this container or to the ideal number of threads
+		this.numTotalThreads = (idealNumThreads > Defines.maxThreads ? Defines.maxThreads : idealNumThreads);
+		
+		// Enqueue initial actions (load some chunks in memory and process input splits that will not be loaded in memory)
+		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits + 2);
+		for(int i = 0 ; i < this.numTotalInputSplits ; i++) {
+			this.globalThreadActionQueue.add(new Action(ActionToTake.PROCESS, inputSplitCollection.get(i)));
+		}
+		
+		// Collection to store the spawned threads
+		ArrayList<Thread> threadCollection = new ArrayList<Thread>();
+		for(int i = 0 ; i < numTotalThreads ; i++) {
+			Thread thread = new Thread(new Runnable() {
+				
+				// File access variable
+				FileSystem fileSystem = FileSystem.get(configuration);
+				
+				@Override
+				public void run() {
+					// Thread loop until input split metadata queue is empty
+					while(globalThreadActionQueue.isEmpty() == false) {
+						// Takes an action from the action queue
+						Action action = globalThreadActionQueue.poll();
+
+						try {
+							huffmanDecompressor(action.inputSplit);
+						} catch (Exception e) {
+							e.printStackTrace();
+							System.err.println("Exception comprimindo o arquivo!");
+						}
+					}
+				}
+				
+				public void huffmanDecompressor(InputSplit inputSplit) throws IOException {
+					Path pathIn = new Path(inputSplit.fileName);
+					FSDataInputStream inputStream = fileSystem.open(pathIn);
+					
+					System.out.println("================ Decompressor ================");
+					System.out.println("FileName: " + inputSplit);
+					
+//					Path pathOut = new Path(inputSplit.fileName);
+//					FSDataOutputStream outputStream = fileSystem.create(pathOut);
+//					
+//					byte[] buffer = new byte[Defines.readBufferSize];
+//					BitSet bufferBits = new BitSet();
+//					
+//					int index = 0;
 //
-//		byte[] byteArray = new byte[f.available()];
-//		f.readFully(byteArray);
+//					while (inputStream.available() > 0) {
+//						inputStream.read(buffer, 0, Defines.readBufferSize);
 //
-//		this.codificationArray = SerializationUtility.deserializeCodificationArray(byteArray);
-//		
-//		/*
-//		System.out.println("CODIFICATION: symbol (size) code"); 
-//		for(short i = 0 ; i < symbols ; i++)
-//			System.out.println(codificationArray[i].toString());
-//		*/
-//	}
+//						for (int i = 0; i < Defines.readBufferSize * 8 ; i++) {
+//							index <<= 1;
+//							if (bufferBits.cheackBit(i) == false)
+//								index += 1;
+//							else
+//								index += 2;
 //
-//	public void codeToTreeArray() {
-//		for(short i = 0 ; i < this.codificationArray.length ; i++) {
-//			this.max_code = (this.codificationArray[i].size > this.max_code) ? this.codificationArray[i].size : this.max_code;  
-//		}
-//		
-//		codificationArrayElementSymbol = new byte[(int) Math.pow(2, (max_code + 1))];
-//		codificationArrayElementUsed = new boolean[(int) Math.pow(2, (max_code + 1))];
-//
-//		for (short i = 0; i < this.codificationArray.length; i++) {
-//			int index = 0;
-//			for (byte b : codificationArray[i].code) {
-//				index <<= 1;
-//				if (b == 0)
-//					index += 1;
-//				else
-//					index += 2;
-//			}
-//			codificationArrayElementSymbol[index] = codificationArray[i].symbol;
-//			codificationArrayElementUsed[index] = true;
-//		}
-//
-//		/*
-//		System.out.println("codeToTreeArray():");
-//		System.out.println("TREE_ARRAY:"); 
-//		for(int i = 0 ; i < Math.pow(2,(max_code + 1)) ; i++) 
-//			if(codificationArrayElementUsed[i])
-//				System.out.println("i: " + i + " -> " + codificationArrayElementSymbol[i]);
-//		System.out.println("------------------------------");
-//		*/
-//	}
-//	
-//	public void huffmanDecode() throws IOException {
-//		byte[] buffer = new byte[1];
-//		BitSet bufferBits = new BitSet();
-//		
-//		int index = 0;
-//
-//		FileSystem fs = FileSystem.get(new Configuration());
-//		FileStatus[] status = fs.listStatus(in);
-//		FSDataOutputStream fout = fs.create(out);
-//
-//		for (short i = 0; i < status.length; i++) {
-//			FSDataInputStream fin = fs.open(status[i].getPath());
-//
-//			while (fin.available() > 0) {
-//				fin.read(buffer, 0, 1);
-//				bufferBits.fromByte(buffer[0]);
-//				for (byte j = 0; j < 8 ; j++) {
-//					index <<= 1;
-//					if (bufferBits.cheackBit(j) == false)
-//						index += 1;
-//					else
-//						index += 2;
-//
-//					if (codificationArrayElementUsed[index]) {
-//						if (codificationArrayElementSymbol[index] != 0) {
-//							fout.write(codificationArrayElementSymbol[index]);
-//							index = 0;
-//						} else {
-//							index = 0;
-//							break;
+//							if (codificationArrayElementUsed[index]) {
+//								if (codificationArrayElementSymbol[index] != 0) {
+//									outputStream.write(codificationArrayElementSymbol[index]);
+//									index = 0;
+//								} else {
+//									index = 0;
+//									break;
+//								}
+//							}
 //						}
 //					}
-//				}
-//			}
-//			fin.close();
-//		}
-//		fout.close();
-//	}
+//					
+//					outputStream.close();
+
+
+					
+					
+					
+				}
+			});
+			
+			// Add thread to the collection
+			threadCollection.add(thread);
+			
+			// Starts thread
+			thread.start();
+		}
+		
+		// Wait until all threads finish their jobs
+		for(Thread thread : threadCollection) {
+			thread.join();
+		}
+	}
 	
-	
+	public void fileToCodification() throws IOException {
+		FileSystem fs = FileSystem.get(new Configuration());
+		FSDataInputStream f = fs.open(new Path(this.fileName + Defines.pathSuffix + Defines.codificationFileName));
+
+		byte[] byteArray = new byte[f.available()];
+		f.readFully(byteArray);
+
+		this.codificationArray = SerializationUtility.deserializeCodificationArray(byteArray);
+		
+		/*
+		System.out.println("CODIFICATION: symbol (size) code"); 
+		for(short i = 0 ; i < symbols ; i++)
+			System.out.println(codificationArray[i].toString());
+		*/
+	}
+
+	public void codeToTreeArray() {
+		for(short i = 0 ; i < this.codificationArray.length ; i++) {
+			this.max_code = (this.codificationArray[i].size > this.max_code) ? this.codificationArray[i].size : this.max_code;  
+		}
+		
+		codificationArrayElementSymbol = new byte[(int) Math.pow(2, (max_code + 1))];
+		codificationArrayElementUsed = new boolean[(int) Math.pow(2, (max_code + 1))];
+
+		for (short i = 0; i < this.codificationArray.length; i++) {
+			int index = 0;
+			for (byte b : codificationArray[i].code) {
+				index <<= 1;
+				if (b == 0)
+					index += 1;
+				else
+					index += 2;
+			}
+			codificationArrayElementSymbol[index] = codificationArray[i].symbol;
+			codificationArrayElementUsed[index] = true;
+		}
+
+		/*
+		System.out.println("codeToTreeArray():");
+		System.out.println("TREE_ARRAY:"); 
+		for(int i = 0 ; i < Math.pow(2,(max_code + 1)) ; i++) 
+			if(codificationArrayElementUsed[i])
+				System.out.println("i: " + i + " -> " + codificationArrayElementSymbol[i]);
+		System.out.println("------------------------------");
+		*/
+	}
+
 	
 	
 	public static void main(String[] args) throws IOException, InterruptedException {
 		Decoder decoder = new Decoder(args);
-//		decoder.decode();
+		decoder.decode();
 	}
 }
