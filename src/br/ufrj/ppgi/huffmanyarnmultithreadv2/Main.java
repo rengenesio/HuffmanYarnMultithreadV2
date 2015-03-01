@@ -33,14 +33,16 @@ public class Main {
 			break;
 		}
 		
+
+		Configuration conf = new Configuration();
+		FileSystem fs = FileSystem.get(conf);
+		
 		if(encoder) {
 			long totalTime, startTime, endTime;
-
-			Configuration conf = new Configuration();
-			FileSystem fs = FileSystem.get(conf);
 	
 			try {
-				fs.delete(new Path(fileName + Defines.pathSuffix), true);
+				fs.delete(new Path(fileName + Defines.pathSuffix + Defines.codificationFileName), true);
+				fs.delete(new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath), true);
 			} catch(Exception ex) { }
 				
 			startTime = System.nanoTime();
@@ -66,6 +68,10 @@ public class Main {
 
 		if(decoder) {
 			long totalTime, startTime, endTime;
+			
+			try {
+				fs.delete(new Path(fileName + Defines.pathSuffix + Defines.decompressedSplitsPath), true);
+			} catch(Exception ex) { }
 			
 			startTime = System.nanoTime();
 			DecoderClient client = new DecoderClient(args);
