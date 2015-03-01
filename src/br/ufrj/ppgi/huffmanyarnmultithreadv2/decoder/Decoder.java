@@ -189,15 +189,13 @@ public class Decoder {
 									outputStream.write(codificationArrayElementSymbol[index]);
 									index = 0;
 								} else {
-									index = 0;
-									break;
+									outputStream.close();
+									inputStream.close();
+									return;
 								}
 							}
 						}
 					}
-					
-					outputStream.close();
-					inputStream.close();
 				}
 			});
 			
