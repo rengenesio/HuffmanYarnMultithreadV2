@@ -13,6 +13,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.BitUtility;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.Defines;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.InputSplit;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.SerializationUtility;
@@ -169,40 +170,34 @@ public class Decoder {
 										
 					Path pathOut = new Path(fileName + Defines.pathSuffix + Defines.decompressedSplitsPath + inputSplit.fileName);
 					FSDataOutputStream outputStream = fileSystem.create(pathOut);
-//					
-//					byte[] buffer = new byte[Defines.readBufferSize];
-//					BitSet bufferBits = new BitSet();
-//					
-//					int index = 0;
-//
-//					while (inputStream.available() > 0) {
-//						inputStream.read(buffer, 0, Defines.readBufferSize);
-//
-//						for (int i = 0; i < Defines.readBufferSize * 8 ; i++) {
-//							index <<= 1;
-//							if (bufferBits.cheackBit(i) == false)
-//								index += 1;
-//							else
-//								index += 2;
-//
-//							if (codificationArrayElementUsed[index]) {
-//								if (codificationArrayElementSymbol[index] != 0) {
-//									outputStream.write(codificationArrayElementSymbol[index]);
-//									index = 0;
-//								} else {
-//									index = 0;
-//									break;
-//								}
-//							}
-//						}
-//					}
-//					
-//					outputStream.close();
 
+					byte[] buffer = new byte[Defines.readBufferSize];
+					
+					int index = 0;
+					while (inputStream.available() > 0) {
+						int readBytes = inputStream.read(buffer, 0, Defines.readBufferSize);
 
+						for (int i = 0; i < readBytes * 8 ; i++) {
+							index <<= 1;
+							if (BitUtility.checkBit(buffer, i) == false)
+								index += 1;
+							else
+								index += 2;
+
+							if (codificationArrayElementUsed[index]) {
+								if (codificationArrayElementSymbol[index] != 0) {
+									outputStream.write(codificationArrayElementSymbol[index]);
+									index = 0;
+								} else {
+									index = 0;
+									break;
+								}
+							}
+						}
+					}
 					
-					
-					
+					outputStream.close();
+					inputStream.close();
 				}
 			});
 			

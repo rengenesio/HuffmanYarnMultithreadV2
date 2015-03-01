@@ -70,10 +70,10 @@ public class Main {
 			startTime = System.nanoTime();
 			DecoderClient client = new DecoderClient(args);
 			if (client.run()) { 
-				System.out.println("Compressão completa!");
+				System.out.println("Descompressão completa!");
 			}
 			else {
-				System.out.println("Erro durante a compressão");
+				System.out.println("Erro durante a descompressão");
 				endTime = System.nanoTime();
 				
 				totalTime = endTime - startTime;
