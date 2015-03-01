@@ -182,8 +182,10 @@ public class Decoder {
 					int totalReadBytes = 0;
 					int codificationArrayIndex = 0;
 					do {
+						System.out.println(readBytes + "  " + totalReadBytes);
 						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
-
+						totalReadBytes += readBytes;
+						
 						for (int i = 0; i < readBytes * 8 ; i++) {
 							codificationArrayIndex <<= 1;
 							if (BitUtility.checkBit(bufferInput, i) == false)
@@ -191,27 +193,27 @@ public class Decoder {
 							else
 								codificationArrayIndex += 2;
 
-//							if (codificationArrayElementUsed[codificationArrayIndex]) {
-//								if (codificationArrayElementSymbol[codificationArrayIndex] != 0) {
-//									byte symbol = codificationArrayElementSymbol[codificationArrayIndex];
-//									bufferOutput[bufferOutputIndex] = symbol;
-//									
-//									bufferOutputIndex++;
-//									if(bufferOutputIndex >= Defines.writeBufferSize) {
-//										outputStream.write(bufferOutput, 0, bufferOutputIndex);
-//										bufferOutputIndex = 0;
-//									}
-//									codificationArrayIndex = 0;
-//								} else {
-//									if(bufferOutputIndex > 0) {
-//										outputStream.write(bufferOutput, 0, bufferOutputIndex);
-//									}
-//									
-//									outputStream.close();
-//									inputStream.close();
-//									return;
-//								}
-//							}
+							if (codificationArrayElementUsed[codificationArrayIndex]) {
+								if (codificationArrayElementSymbol[codificationArrayIndex] != 0) {
+									byte symbol = codificationArrayElementSymbol[codificationArrayIndex];
+									bufferOutput[bufferOutputIndex] = symbol;
+									
+									bufferOutputIndex++;
+									if(bufferOutputIndex >= Defines.writeBufferSize) {
+										outputStream.write(bufferOutput, 0, bufferOutputIndex);
+										bufferOutputIndex = 0;
+									}
+									codificationArrayIndex = 0;
+								} else {
+									if(bufferOutputIndex > 0) {
+										outputStream.write(bufferOutput, 0, bufferOutputIndex);
+									}
+									
+									outputStream.close();
+									inputStream.close();
+									return;
+								}
+							}
 						}
 					} while (readBytes > 0);
 					System.out.println(totalReadBytes);
