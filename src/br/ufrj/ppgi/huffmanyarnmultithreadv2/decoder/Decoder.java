@@ -194,6 +194,7 @@ public class Decoder {
 										outputStream.write(bufferOutput, 0, Defines.writeBufferSize);
 										bufferOutputIndex = 0;
 									}
+									codificationArrayIndex = 0;
 								} else {
 									if(bufferOutputIndex > 0) {
 										outputStream.write(bufferOutput, 0, bufferOutputIndex);
