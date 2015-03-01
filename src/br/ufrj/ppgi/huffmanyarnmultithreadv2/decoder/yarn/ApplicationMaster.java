@@ -184,7 +184,7 @@ public class ApplicationMaster {
 		RackResolver.init(conf);
 		
 		// Search blocks from file
-		Path path = new Path(fileName + Defines.pathSuffix + Defines.compressedPath);
+		Path path = new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath);
 		FileSystem fileSystem = FileSystem.get(path.toUri(), conf);
 		FileStatus[] fileStatusArray = fileSystem.listStatus(path);
 		

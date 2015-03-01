@@ -21,9 +21,11 @@ public class Defines {
 	
 	// Path defines
 	public static final String pathSuffix = ".yarnmultithreadv2dir/";
-	public static final String compressedPath = "compressed/";
-	public static final String compressedFileName = "part_";
+	public static final String compressedSplitsPath = "compressed/";
+	public static final String compressedSplitFileName = "part_";
 	public static final String codificationFileName = "codification";
+	public static final String decompressedSplitsPath = "decompressed-part/";
+	public static final String decompressedSplitFileName = "decompressed-part_";
 	public static final String decompressedFileName = "decompressed";
 	
 	

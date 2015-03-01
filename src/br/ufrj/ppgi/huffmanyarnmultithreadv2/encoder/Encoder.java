@@ -541,7 +541,7 @@ public final class Encoder {
 					
 					// Output
 			    	FileSystem fsOutput = FileSystem.get(configuration);
-					Path pathOutput = new Path(fileName + Defines.pathSuffix + Defines.compressedPath + Defines.compressedFileName + String.format("%08d", inputSplit.part));
+					Path pathOutput = new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath + Defines.compressedSplitFileName + String.format("%08d", inputSplit.part));
 					FSDataOutputStream fOutput = fsOutput.create(pathOutput);
 					
 					BitSet bufferBitSet = null;

@@ -9,6 +9,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -133,7 +134,7 @@ public class Decoder {
 		this.numTotalThreads = (idealNumThreads > Defines.maxThreads ? Defines.maxThreads : idealNumThreads);
 		
 		// Enqueue initial actions (load some chunks in memory and process input splits that will not be loaded in memory)
-		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits + 2);
+		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits);
 		for(int i = 0 ; i < this.numTotalInputSplits ; i++) {
 			this.globalThreadActionQueue.add(new Action(ActionToTake.PROCESS, inputSplitCollection.get(i)));
 		}
@@ -163,14 +164,11 @@ public class Decoder {
 				}
 				
 				public void huffmanDecompressor(InputSplit inputSplit) throws IOException {
-					Path pathIn = new Path(inputSplit.fileName);
+					Path pathIn = new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath + inputSplit.fileName);
 					FSDataInputStream inputStream = fileSystem.open(pathIn);
-					
-					System.out.println("================ Decompressor ================");
-					System.out.println("FileName: " + inputSplit);
-					
-//					Path pathOut = new Path(inputSplit.fileName);
-//					FSDataOutputStream outputStream = fileSystem.create(pathOut);
+										
+					Path pathOut = new Path(fileName + Defines.pathSuffix + Defines.decompressedSplitsPath + inputSplit.fileName);
+					FSDataOutputStream outputStream = fileSystem.create(pathOut);
 //					
 //					byte[] buffer = new byte[Defines.readBufferSize];
 //					BitSet bufferBits = new BitSet();
