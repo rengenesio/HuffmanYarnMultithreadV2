@@ -175,9 +175,10 @@ public class Decoder {
 					byte[] bufferInput = new byte[Defines.readBufferSize];
 
 					int readBytes = 0;
+					int totalReadBytes = 0;
 					int codificationArrayIndex = 0;
 					while (inputStream.available() > 0) {
-						readBytes = inputStream.read(bufferInput, 0, inputSplit.length);
+						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
 
 						for (int i = 0; i < readBytes * 8 ; i++) {
 							codificationArrayIndex <<= 1;
