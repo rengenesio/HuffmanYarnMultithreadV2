@@ -144,6 +144,7 @@ public class Decoder {
 					int readBytes = 0;
 					int totalReadBytes = 0;
 					int codificationArrayIndex = 0;
+					System.out.println("loooopp");
 					do {
 						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
 						System.out.println(readBytes + " " + totalReadBytes);
