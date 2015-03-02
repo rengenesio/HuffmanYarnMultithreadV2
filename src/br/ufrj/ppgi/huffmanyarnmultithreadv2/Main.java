@@ -84,7 +84,7 @@ public class Main {
 				
 				totalTime = endTime - startTime;
 				
-				System.out.println(totalTime/1000000000.0 + " s (encoder)");
+				System.out.println(totalTime/1000000000.0 + " s (decoder)");
 				return;
 			}
 			endTime = System.nanoTime();

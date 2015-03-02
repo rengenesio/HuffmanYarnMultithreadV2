@@ -6,10 +6,12 @@ public class BitUtility {
 		int byteIndex = pos / 8;
 		pos = 7 - (pos % 8);
 		
-		if (s)
+		if (s) {
 			byteArray[byteIndex] |= 1 << pos;
-		else
+		}
+		else {
 			byteArray[byteIndex] &= ~(1 << pos);
+		}
 	}
 
 	public static boolean checkBit(byte[] byteArray, int pos) {
@@ -17,8 +19,9 @@ public class BitUtility {
 		pos = 7 - (pos % 8);
 		
 		int bit = byteArray[byteIndex] & (1 << pos);
-		if (bit > 0)
+		if (bit > 0) {
 			return true;
+		}
 
 		return false;
 	}

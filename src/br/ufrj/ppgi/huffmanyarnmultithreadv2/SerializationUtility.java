@@ -51,6 +51,7 @@ public class SerializationUtility {
 		
 		Codification[] codificationArray = new Codification[codificationCollection.size()];
 		codificationCollection.toArray(codificationArray);
+		
 		return codificationArray;
 	}
 	
