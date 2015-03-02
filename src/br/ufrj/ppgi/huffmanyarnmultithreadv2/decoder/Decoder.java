@@ -20,23 +20,17 @@ import br.ufrj.ppgi.huffmanyarnmultithreadv2.SerializationUtility;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Action;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Action.ActionToTake;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Codification;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.HostPortPair;
 
 
 public class Decoder {
-	// ------------- MASTER AND SLAVE CONTAINER PROPERTIES ------------- //
-	
 	// (YARN) YARN Configuration
 	private Configuration configuration;
 	
-	// (YARN) Indicates if this container is the master container
-	//private boolean containerIsMaster = false;
-	
-	// (YARN) Total executing containers 
-	//private int numTotalContainers;
-		
 	// File to be processed
 	private String fileName;
+
+	// HDFS access object
+	private FileSystem fileSystem; 
 	
 	// Collection with this container's input splits to be processed
 	private ArrayList<InputSplit> inputSplitCollection;
@@ -52,32 +46,17 @@ public class Decoder {
 	
 	// Queue to store input splits indicator (symbol count threads and encoder queues)
 	private Queue<Action> globalThreadActionQueue;
-	
-	int loadedChunks = 0;
-	boolean memoryFull = false;
-	
+
+	// Maximum code size
 	byte max_code = 0;
+	
+	// Codification in a array (state machine)
 	byte[] codificationArrayElementSymbol;
 	boolean[] codificationArrayElementUsed;
 
-
-	// ------------------ MASTER CONTAINER PROPERTIES ------------------ //
-
-	// (YARN) Master stores slaves containers listening ports
-	//private HostPortPair[] containerPortPairArray;
-	
-
-	// ------------------ SLAVE CONTAINER PROPERTIES ------------------- //
-	
-	// (YARN) Master container hostname
-	//private String masterContainerHostName;
-	
-	// Port where slave container will listen for master connection
-	//private int slavePort;
 	
 	
-	
-	public Decoder(String[] args) {
+	public Decoder(String[] args) throws IOException {
 		// Instantiates a YARN configuration
 		this.configuration = new Configuration();
 
@@ -100,24 +79,13 @@ public class Decoder {
 			
 			// Add this input split to input split collection
 			this.inputSplitCollection.add(inputSplit);
-
-			// The master container will be the one with the part 0
-			//if(inputSplit.part == 0) {
-			//	this.containerIsMaster = true;
-			//}
-			
-//
-			System.out.println(inputSplit);
 		}
 		
 		// Sets number of total input splits for this container
 		this.numTotalInputSplits = this.inputSplitCollection.size();
-		
-		//// Reads the master container hostname from command line args
-		//this.masterContainerHostName = args[2];
-		
-		//// Reads the number of total containers from command line args
-		//this.numTotalContainers = Integer.parseInt(args[3]);
+
+		// Initializes HDFS access object
+		this.fileSystem = FileSystem.get(this.configuration);
 	}
 	
 	public void decode() throws IOException, InterruptedException {
@@ -130,7 +98,7 @@ public class Decoder {
 		// Limitates the thread number to the max for this container or to the ideal number of threads
 		this.numTotalThreads = (idealNumThreads > Defines.maxThreads ? Defines.maxThreads : idealNumThreads);
 		
-		// Enqueue initial actions (load some chunks in memory and process input splits that will not be loaded in memory)
+		// Enqueue initial actions (process input splits)
 		this.globalThreadActionQueue = new ArrayBlockingQueue<Action>(this.numTotalInputSplits);
 		for(int i = 0 ; i < this.numTotalInputSplits ; i++) {
 			this.globalThreadActionQueue.add(new Action(ActionToTake.PROCESS, inputSplitCollection.get(i)));
@@ -138,11 +106,10 @@ public class Decoder {
 		
 		// Collection to store the spawned threads
 		ArrayList<Thread> threadCollection = new ArrayList<Thread>();
+		
+		// Spawn threads
 		for(int i = 0 ; i < numTotalThreads ; i++) {
 			Thread thread = new Thread(new Runnable() {
-				
-				// File access variable
-				FileSystem fileSystem = FileSystem.get(configuration);
 				
 				@Override
 				public void run() {
@@ -164,12 +131,8 @@ public class Decoder {
 					Path pathIn = new Path(fileName + Defines.pathSuffix + Defines.compressedSplitsPath + inputSplit.fileName);
 					FSDataInputStream inputStream = fileSystem.open(pathIn);
 					
-					System.out.println("PathIn: " + pathIn.toString());
-										
 					Path pathOut = new Path(fileName + Defines.pathSuffix + Defines.decompressedSplitsPath + inputSplit.fileName);
 					FSDataOutputStream outputStream = fileSystem.create(pathOut);
-					
-					System.out.println("PathOut: " + pathOut.toString());
 					
 					// Buffer to store data to be written in disk
 					byte[] bufferOutput = new byte[Defines.writeBufferSize];
@@ -182,7 +145,6 @@ public class Decoder {
 					int totalReadBytes = 0;
 					int codificationArrayIndex = 0;
 					do {
-						System.out.println(readBytes + "  " + totalReadBytes);
 						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
 						totalReadBytes += readBytes;
 						
@@ -216,7 +178,6 @@ public class Decoder {
 							}
 						}
 					} while (readBytes > 0);
-					System.out.println(totalReadBytes);
 				}
 			});
 			
@@ -234,11 +195,10 @@ public class Decoder {
 	}
 	
 	public void fileToCodification() throws IOException {
-		FileSystem fs = FileSystem.get(new Configuration());
-		FSDataInputStream f = fs.open(new Path(this.fileName + Defines.pathSuffix + Defines.codificationFileName));
+		FSDataInputStream inputStream = fileSystem.open(new Path(this.fileName + Defines.pathSuffix + Defines.codificationFileName));
 
-		byte[] byteArray = new byte[f.available()];
-		f.readFully(byteArray);
+		byte[] byteArray = new byte[inputStream.available()];
+		inputStream.readFully(byteArray);
 
 		this.codificationArray = SerializationUtility.deserializeCodificationArray(byteArray);
 		
