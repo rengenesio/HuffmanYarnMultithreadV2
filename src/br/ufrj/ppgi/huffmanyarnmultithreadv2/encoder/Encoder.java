@@ -639,9 +639,9 @@ public final class Encoder {
 			}
 		}
 
-		/*
+		///*
 		System.out.println(nodeArray.toString());
-		*/
+		//*/
 	}
 
 	public void huffmanEncode() {

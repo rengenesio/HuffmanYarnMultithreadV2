@@ -160,10 +160,8 @@ public class Decoder {
 
 							if (codificationArrayElementUsed[codificationArrayIndex]) {
 								if (codificationArrayElementSymbol[codificationArrayIndex] != 0) {
-									byte symbol = codificationArrayElementSymbol[codificationArrayIndex];
-									bufferOutput[bufferOutputIndex] = symbol;
+									bufferOutput[bufferOutputIndex++] = codificationArrayElementSymbol[codificationArrayIndex];
 									
-									bufferOutputIndex++;
 									if(bufferOutputIndex >= Defines.writeBufferSize) {
 										outputStream.write(bufferOutput, 0, bufferOutputIndex);
 										bufferOutputIndex = 0;
