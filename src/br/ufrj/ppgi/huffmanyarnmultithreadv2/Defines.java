@@ -29,7 +29,6 @@ public class Defines {
 	public static final String decompressedSplitFileName = "decompressed-part_";
 	public static final String decompressedFileName = "decompressed";
 	
-	
 	// Huffman algorithm constants
 	public static final int bitsCodification = 8;
 	public static final int twoPowerBitsCodification = 256;
