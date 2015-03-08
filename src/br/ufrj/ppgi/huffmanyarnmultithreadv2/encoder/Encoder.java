@@ -695,12 +695,12 @@ public final class Encoder {
 			}
 		}
 
-		/*
+		///*
 		System.out.println(symbols);
 		System.out.println("CODIFICATION: symbol (size) code"); 
 		for (short i = 0; i < codificationArray.length ; i++)
 			System.out.println(codificationArray[i].toString());
-		*/
+		//*/
 	}
 	
 	public void codificationToHDFS() throws IOException {
