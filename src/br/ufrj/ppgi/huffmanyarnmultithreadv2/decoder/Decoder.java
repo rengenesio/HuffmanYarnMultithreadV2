@@ -13,13 +13,13 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.Action;
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.Action.ActionToTake;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.BitUtility;
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.Codification;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.Defines;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.InputSplit;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.SerializationUtility;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Action;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Action.ActionToTake;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Codification;
 
 
 public class Decoder {
@@ -121,8 +121,8 @@ public class Decoder {
 						try {
 							huffmanDecompressor(action.inputSplit);
 						} catch (Exception e) {
-							e.printStackTrace();
 							System.err.println("Exception comprimindo o arquivo!");
+							e.printStackTrace();
 						}
 					}
 				}
@@ -144,10 +144,9 @@ public class Decoder {
 					int readBytes = 0;
 					int totalReadBytes = 0;
 					int codificationArrayIndex = 0;
-					System.out.println("loooopp");
 					do {
 						readBytes = inputStream.read(inputSplit.offset + totalReadBytes, bufferInput, 0, (totalReadBytes + Defines.readBufferSize > inputSplit.length ? inputSplit.length - totalReadBytes : Defines.readBufferSize));
-						System.out.println(readBytes + " " + totalReadBytes);
+						//System.out.println(readBytes + " " + totalReadBytes);
 						totalReadBytes += readBytes;
 						
 						

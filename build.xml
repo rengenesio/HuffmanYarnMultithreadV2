@@ -9,13 +9,4 @@
 		</manifest>
 	</jar>
     </target>
-    
-    <target name="create_tddjar">
-	<jar destfile="./release/tdd.jar" basedir="./bin">
-		<manifest>
-			<attribute name="Main-Class" value="br.ufrj.ppgi.huffmanyarnmultithreadv2.tdd.TddMain"/>
-		</manifest>
-	</jar>
-    </target>
-
 </project>

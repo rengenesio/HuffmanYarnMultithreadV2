@@ -67,7 +67,7 @@ public class ApplicationMaster {
 	private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
 	
 	// Configuration
-	private Configuration conf; 
+	private Configuration configuration;
 
 	// String with the Application Id
 	private String appId;
@@ -80,10 +80,10 @@ public class ApplicationMaster {
 
 	// Handle to communicate with the Resource Manager
 	@SuppressWarnings("rawtypes")
-	private AMRMClientAsync rmClient;
+	private AMRMClientAsync resourceManagerClient;
 
 	// Handle to communicate with the Node Manager
-	private NMClientAsync nmClientAsync;
+	private NMClientAsync nodeManagerClient;
 	
 	// Listen to process the response from the Node Manager
 	private NMCallbackHandler containerListener;
@@ -94,7 +94,7 @@ public class ApplicationMaster {
 	// Tracking url to which app master publishes info for clients to monitor
 	private String appMasterTrackingUrl = "";
 
-	// App Master configuration No. of containers to run shell command on
+	// Number of containers to be launched
 	private int numTotalContainers = 1;
 	
 	// Counter for completed containers (complete denotes successful or failed)
@@ -113,7 +113,7 @@ public class ApplicationMaster {
 	private volatile boolean done;
 
 	// Launch threads
-	private List<Thread> launchThreads = new ArrayList<Thread>();
+	private List<Thread> launchedThreads = new ArrayList<Thread>();
 	
 	private ByteBuffer allTokens;
 
@@ -122,16 +122,9 @@ public class ApplicationMaster {
 	
 
 	public ApplicationMaster(String[] args) {
-		this.conf = new YarnConfiguration();
+		this.configuration = new YarnConfiguration();
 		this.appId = args[0];
 		this.fileName = args[1];
-	}
-
-
-	public static void main(String[] args) throws YarnException, IOException, InterruptedException {
-		ApplicationMaster appMaster = new ApplicationMaster(args);
-		appMaster.run();
-		appMaster.finish();
 	}
 
 	@SuppressWarnings("unchecked")
@@ -144,7 +137,6 @@ public class ApplicationMaster {
 		
 		// Now remove the AM->RM token so that containers cannot access it.
 		Iterator<Token<?>> iter = credentials.getAllTokens().iterator();
-		LOG.info("Executing with tokens:");
 		while (iter.hasNext()) {
 			Token<?> token = iter.next();
 			LOG.info(token);
@@ -156,20 +148,20 @@ public class ApplicationMaster {
 	    
 		
 		AMRMClientAsync.CallbackHandler allocListener = new RMCallbackHandler();
-		rmClient = AMRMClientAsync.createAMRMClientAsync(1000, allocListener);
-		rmClient.init(conf);
-		rmClient.start();
+		resourceManagerClient = AMRMClientAsync.createAMRMClientAsync(1000, allocListener);
+		resourceManagerClient.init(configuration);
+		resourceManagerClient.start();
 
 		containerListener = new NMCallbackHandler(this);
-		nmClientAsync = new NMClientAsyncImpl(containerListener);
-		nmClientAsync.init(conf);
-		nmClientAsync.start();
+		nodeManagerClient = new NMClientAsyncImpl(containerListener);
+		nodeManagerClient.init(configuration);
+		nodeManagerClient.start();
 		
 		// Get hostname where ApplicationMaster is running
 		String appMasterHostname = NetUtils.getHostname();
 		
 		// Register self with ResourceManager. This will start heartbeating to the RM
-		rmClient.registerApplicationMaster(appMasterHostname, -1, appMasterTrackingUrl);
+		resourceManagerClient.registerApplicationMaster(appMasterHostname, -1, appMasterTrackingUrl);
 		
 		// Priority for worker containers - priorities are intra-application
 	    Priority priority = Records.newRecord(Priority.class);
@@ -181,11 +173,11 @@ public class ApplicationMaster {
 	    capability.setVirtualCores(Defines.containerVCores);
 
 	    // Resolver for hostname/rack
-		RackResolver.init(conf);
+		RackResolver.init(configuration);
 		
 		// Search blocks from file
 		Path path = new Path(fileName);
-		FileSystem fileSystem = FileSystem.get(path.toUri(), conf);
+		FileSystem fileSystem = FileSystem.get(path.toUri(), configuration);
 		
 		FileStatus fileStatus = fileSystem.getFileStatus(path);
 		BlockLocation[] blockLocationArray = fileSystem.getFileBlockLocations(fileStatus, 0, fileStatus.getLen());
@@ -197,7 +189,7 @@ public class ApplicationMaster {
 			if(blockLocation.getOffset() == 0) {
 				this.masterContainerHostName = hostName;
 			}
-			if(!hostInputSplit.containsKey(hostName)) {
+			if(hostInputSplit.containsKey(hostName) == false) {
 				hostInputSplit.put(hostName, new ArrayList<String>());
 			}
 			InputSplit inputSplit = new InputSplit(this.fileName, i, blockLocation.getOffset(), (int) blockLocation.getLength());
@@ -218,12 +210,7 @@ public class ApplicationMaster {
 			
 			String[] containerLocation = { hashEntry.getKey() };
 			ContainerRequest containerAsk = new ContainerRequest(capability, containerLocation, null, priority, false);
-			rmClient.addContainerRequest(containerAsk);
-			
-			//System.out.println("Key: " + hashEntry.getKey());
-			//for(String s : hashEntry.getValue()) {
-			//	System.out.println("     Value: " + s);	
-			//}
+			resourceManagerClient.addContainerRequest(containerAsk);
 		}
 		
 		numTotalContainers = hostInputSplit.size();
@@ -266,7 +253,7 @@ public class ApplicationMaster {
 
 			// Env variable CLASSPATH
 			StringBuilder classPathEnv = new StringBuilder(Environment.CLASSPATH.$$()).append(ApplicationConstants.CLASS_PATH_SEPARATOR).append("./*");
-			for (String c : conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH, YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH)) {
+			for (String c : configuration.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH, YarnConfiguration.DEFAULT_YARN_CROSS_PLATFORM_APPLICATION_CLASSPATH)) {
 				classPathEnv.append(ApplicationConstants.CLASS_PATH_SEPARATOR);
 				classPathEnv.append(c.trim());
 			}
@@ -278,7 +265,7 @@ public class ApplicationMaster {
 			// Instance of FileSystem
 			FileSystem fs = null;
 			try {
-				fs = FileSystem.get(conf);
+				fs = FileSystem.get(configuration);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -349,7 +336,7 @@ public class ApplicationMaster {
 			ctx.setTokens(allTokens.duplicate());
 			
 			containerListener.addContainer(container.getId(), container);
-			nmClientAsync.startContainerAsync(container, ctx);
+			nodeManagerClient.startContainerAsync(container, ctx);
 		}
 		
 		private void addToLocalResources(FileSystem fs, String fileSrcPath, String fileDstPath, String appId, Map<String, LocalResource> localResources, String resources) throws IOException {
@@ -383,7 +370,7 @@ public class ApplicationMaster {
 		}
 
 		// Join all launched threads needed for when we time out and we need to release containers
-		for (Thread launchThread : launchThreads) {
+		for (Thread launchThread : launchedThreads) {
 			try {
 				launchThread.join(10000);
 			} catch (InterruptedException e) {
@@ -393,11 +380,12 @@ public class ApplicationMaster {
 		}
 
 		// When the application completes, it should stop all running containers
+//		
 		LOG.info("Application completed. Stopping running containers");
-		nmClientAsync.stop();
+		nodeManagerClient.stop();
 
-		// When the application completes, it should send a finish application
-		// signal to the RM
+		// When the application completes, it should send a finish application signal to the RM
+//		
 		LOG.info("Application completed. Signalling finish to RM");
 
 		FinalApplicationStatus appStatus;
@@ -412,14 +400,12 @@ public class ApplicationMaster {
 		}
 		
 		try {
-			rmClient.unregisterApplicationMaster(appStatus, appMessage, null);
-		} catch (YarnException ex) {
+			resourceManagerClient.unregisterApplicationMaster(appStatus, appMessage, null);
+		} catch (Exception ex) {
 			LOG.error("Failed to unregister application", ex);
-		} catch (IOException e) {
-			LOG.error("Failed to unregister application", e);
 		}
 		
-		rmClient.stop();
+		resourceManagerClient.stop();
 
 		return success;
 	}
@@ -474,16 +460,18 @@ public class ApplicationMaster {
 
 		@Override
 		public void onContainersAllocated(List<Container> allocatedContainers) {
+//			
 			LOG.info("Got response from RM for container ask, allocatedCnt=" + allocatedContainers.size());
 			numAllocatedContainers.addAndGet(allocatedContainers.size());
 			for (Container allocatedContainer : allocatedContainers) {
+//				
 				LOG.info("Launching shell command on a new container." + ", containerId=" + allocatedContainer.getId() + ", containerNode=" + allocatedContainer.getNodeId().getHost() + ":" + allocatedContainer.getNodeId().getPort() + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress() + ", containerResourceMemory" + allocatedContainer.getResource().getMemory()+ ", containerResourceVirtualCores" + allocatedContainer.getResource().getVirtualCores());
 				System.out.println("ContainerId= " + allocatedContainer.getId() + ", containerNode= " + allocatedContainer.getNodeId().getHost() + ":" + allocatedContainer.getNodeId().getPort() + ", containerResourceMemory" + allocatedContainer.getResource().getMemory()+ ", containerResourceVirtualCores" + allocatedContainer.getResource().getVirtualCores());
 				LaunchContainerRunnable runnableLaunchContainer = new LaunchContainerRunnable(allocatedContainer, containerListener);
 				Thread launchThread = new Thread(runnableLaunchContainer);
 
 				// launch and start the container on a separate thread to keep the main thread unblocked as all containers may not be allocated at one go.
-				launchThreads.add(launchThread);
+				launchedThreads.add(launchThread);
 				launchThread.start();
 			}
 		}
@@ -507,7 +495,7 @@ public class ApplicationMaster {
 		@Override
 		public void onError(Throwable e) {
 			done = true;
-			rmClient.stop();
+			resourceManagerClient.stop();
 		}
 	}
 
@@ -549,7 +537,7 @@ public class ApplicationMaster {
 			}
 			Container container = containers.get(containerId);
 			if (container != null) {
-				applicationMaster.nmClientAsync.getContainerStatusAsync(
+				applicationMaster.nodeManagerClient.getContainerStatusAsync(
 						containerId, container.getNodeId());
 			}
 		}
@@ -573,5 +561,13 @@ public class ApplicationMaster {
 			LOG.error("Failed to stop Container " + containerId);
 			containers.remove(containerId);
 		}
+	}
+	
+	
+	
+	public static void main(String[] args) throws YarnException, IOException, InterruptedException {
+		ApplicationMaster applicationMaster = new ApplicationMaster(args);
+		applicationMaster.run();
+		applicationMaster.finish();
 	}
 }

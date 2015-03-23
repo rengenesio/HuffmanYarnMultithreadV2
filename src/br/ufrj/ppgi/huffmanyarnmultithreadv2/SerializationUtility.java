@@ -6,8 +6,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Codification;
-
 
 public class SerializationUtility {
 
@@ -69,10 +67,8 @@ public class SerializationUtility {
 	public static long[] deserializeFrequencyArray(byte[] byteArray) {
 		long[] frequencyArray = new long[Defines.twoPowerBitsCodification];
 		
-		//System.arraycopy(byteArray, 0, frequencyArray, 0, byteArray.length);
-		
 		int index = 0;
-		for(int i = 0 ; i < byteArray.length ; i += 8) {
+		for(int i = 0 ; i < byteArray.length ; i += Defines.bitsCodification) {
 			frequencyArray[index] += (byteArray[i] & 0xFF);
 			frequencyArray[index] <<= 8;
 			frequencyArray[index] += (byteArray[i+1] & 0xFF);
@@ -91,7 +87,6 @@ public class SerializationUtility {
 
 			index++;
 		}
-		
 		
 		return frequencyArray;
 	}

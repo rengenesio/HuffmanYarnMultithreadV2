@@ -17,11 +17,13 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.Action;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.BitUtility;
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.Codification;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.Defines;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.InputSplit;
 import br.ufrj.ppgi.huffmanyarnmultithreadv2.SerializationUtility;
-import br.ufrj.ppgi.huffmanyarnmultithreadv2.encoder.Action.ActionToTake;
+import br.ufrj.ppgi.huffmanyarnmultithreadv2.Action.ActionToTake;
 
 
 public final class Encoder {
@@ -76,9 +78,6 @@ public final class Encoder {
 	int loadedChunks = 0;
 	boolean memoryFull = false;
 	
-	//private Queue<InputSplit> symbolCountInputSplitMetadataQueue;
-	//private Queue<InputSplit> encoderInputSplitMetadataQueue;
-	
 
 	// ------------------ MASTER CONTAINER PROPERTIES ------------------ //
 	
@@ -130,9 +129,6 @@ public final class Encoder {
 			if(inputSplit.part == 0) {
 				this.containerIsMaster = true;
 			}
-			
-//
-			System.out.println(inputSplit);
 		}
 		
 		// Sets number of total input splits for this container
@@ -212,8 +208,9 @@ public final class Encoder {
 						this.path = new Path(fileName);
 						this.f = fs.open(path);
 					} catch (IOException e) {
-						e.printStackTrace();
 						System.err.println("Exception abrindo o ponteiro para o arquivo!");
+						System.out.println("Exception abrindo o ponteiro para o arquivo!");
+						e.printStackTrace();
 					}
 							
 							
@@ -227,8 +224,10 @@ public final class Encoder {
 							try {
 								chunkToMemory(action.inputSplit);
 							} catch (Exception e) {
-								e.printStackTrace();
 								System.err.println("Exception carregando o arquivo na memória!");
+								System.out.println("Exception carregando o arquivo na memória!");
+								e.printStackTrace();
+								
 							}
 
 							globalThreadActionQueue.add(new Action(ActionToTake.PROCESS, action.inputSplit));
@@ -237,6 +236,8 @@ public final class Encoder {
 							try {
 								chunkToFrequency(action.inputSplit);
 							} catch (Exception e) {
+								System.err.println("Exception contando a frequência do arquivo!");
+								System.out.println("Exception contando a frequência do arquivo!");
 								e.printStackTrace();
 							}
 						}
@@ -258,7 +259,7 @@ public final class Encoder {
 					// Index of this input split
 					int index = inputSplitCollection.indexOf(inputSplit);
 					
-					if(index > numTotalChunksInMemory) { // Split is in disk
+					if(index >= numTotalChunksInMemory) { // Split is in disk
 						// Buffer to store data read from disk
 						byte[] buffer = new byte[Defines.readBufferSize];
 						
@@ -310,32 +311,53 @@ public final class Encoder {
 		if(this.containerIsMaster) { // Master task (receive frequency data from all slaves)
 			// Instantiates matrix
 			serializedSlaveFrequency = new byte[numTotalContainers - 1][2048];
-			
+//
+			System.out.println("Alocado o array para receber a frequência dos outros containers");
+
 			// Stores informations about slaves, to connect to them to send codification data
 			this.containerPortPairArray = new HostPortPair[numTotalContainers - 1];
+//			
+			System.out.println("Alocado o array para armazenar as portas de comunicação");
 			
 			// Instantiates a socket that listen for connections
 			ServerSocket serverSocket = new ServerSocket(9996, numTotalContainers);
+//			
+			System.out.println("Instanciado o socket");
 			
 			for(int i = 0 ; i < numTotalContainers -1 ; i++) {
 				// Blocked waiting for some slave connection
 				Socket clientSocket = serverSocket.accept();
+//
+				System.out.println("Master abriu socket para aguardar client " + i);
 
 				// When slave connected, instantiates stream to receive slave's frequency data
 			    DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
-			    
+//
+				System.out.println("Master abriu socket de comunicação com o client " + i);
+				
 			    // Reads serialized data from slave
 			    dataInputStream.readFully(serializedSlaveFrequency[i], 0, 2048);
-			    
+//
+				System.out.println("Master recebeu dados do client " + i);
+				
 			    // Instantiates stream to send to slave a port where the slave will listen a connection to receive the codification data
 			    DataOutputStream dataOutputStream = new DataOutputStream(clientSocket.getOutputStream());
 			    dataOutputStream.writeInt(3020 + i);
+
+//
+				System.out.println("Master falou pro client " + i + " ouvir na porta " + (3020 + i));
 			    
 			    // Stores information about this slave and the port it received
 			    containerPortPairArray[i] = new HostPortPair(clientSocket.getInetAddress().getHostName(), 3020 + i);
-			    
+
+//
+				System.out.println("Master guardou esta informação");
+				
 			    // Close socket with slave
  			    clientSocket.close();
+ 			    
+//
+				System.out.println("Master recebeu tudo do client " + i);
 			}
 			
 			// Close ServerSocket after receive from all slaves
@@ -369,17 +391,6 @@ public final class Encoder {
 			// Close socket
 			socket.close();
 		}
-		
-//		
-		long totalSymbolsForContainer = 0;
-	    for(short i = 0 ; i < Defines.twoPowerBitsCodification ; i++) {
-//	    	
-	    		totalSymbolsForContainer += this.containerTotalFrequencyArray[i];
-    	}
-//		
-	    System.out.println("TotalSymbols in this container: " + totalSymbolsForContainer);
-	    	
-	    
 		
 		// Sequential part (only master container)
 		if(this.containerIsMaster) {
@@ -521,8 +532,11 @@ public final class Encoder {
 						try {
 							huffmanCompressor(action.inputSplit);
 						} catch (Exception e) {
-							e.printStackTrace();
 							System.err.println("Exception comprimindo o arquivo!");
+							System.err.println(e);
+							System.out.println("Exception comprimindo o arquivo!");
+							System.out.println(e);
+							e.printStackTrace();
 						}
 					}
 				}
@@ -536,10 +550,10 @@ public final class Encoder {
 					
 					// Buffer to store data to be written in disk
 					byte[] bufferOutput = new byte[Defines.writeBufferSize];
-					int maxBitsInBufferOutput = Defines.writeBufferSize * 8;
+					int maxBitsInBufferOutput = Defines.writeBufferSize * Defines.bitsInByte;
 					
 					int bits = 0;
-					if(index > numTotalChunksInMemory) { // Split is in disk
+					if(index >= numTotalChunksInMemory) { // Split is in disk
 						// Buffer to store data read from disk
 						byte[] bufferInput = new byte[Defines.readBufferSize];
 						
@@ -631,17 +645,18 @@ public final class Encoder {
 
 
 	public void frequencyToNodeArray() {
-		this.nodeArray = new NodeArray((short) this.symbols);
+		this.nodeArray = new NodeArray((short) (this.symbols + 1));
 
-		for (short i = 0 ; i < 256 ; i++) {
+		for (short i = 0 ; i < Defines.twoPowerBitsCodification ; i++) {
 			if (this.totalFrequencyArray[i] > 0) {
 				this.nodeArray.insert(new Node((byte) i, this.totalFrequencyArray[i]));
 			}
 		}
 
-		///*
+		/*
+		System.out.println("NODEARRAY: ");
 		System.out.println(nodeArray.toString());
-		//*/
+		*/
 	}
 
 	public void huffmanEncode() {
@@ -662,11 +677,11 @@ public final class Encoder {
 	
 	public void treeToCode() {
 		Stack<Node> s = new Stack<Node>();
-		codificationArray = new Codification[symbols];
+		this.codificationArray = new Codification[this.symbols];
 
-		Node n = nodeArray.get(0);
+		Node n = this.nodeArray.get(0);
 		short codes = 0;
-		byte[] path = new byte[33];
+		byte[] path = new byte[Defines.huffmanTreeMaxPath + 1];
 		
 		byte size = 0;
 		s.push(n);
@@ -695,12 +710,12 @@ public final class Encoder {
 			}
 		}
 
-		///*
+		/*
 		System.out.println(symbols);
 		System.out.println("CODIFICATION: symbol (size) code"); 
 		for (short i = 0; i < codificationArray.length ; i++)
 			System.out.println(codificationArray[i].toString());
-		//*/
+		*/
 	}
 	
 	public void codificationToHDFS() throws IOException {
@@ -708,14 +723,11 @@ public final class Encoder {
 		Path path = new Path(fileName + Defines.pathSuffix + Defines.codificationFileName);
 		FSDataOutputStream f = fs.create(path);
 		
-		byte[] codificationSerialized = SerializationUtility.serializeCodificationArray(this.codificationArray);
-		f.write(codificationSerialized);
+		f.write(SerializationUtility.serializeCodificationArray(this.codificationArray));
 		f.close();
 	}
 
 
-
-	
 	public static void main(String[] args) throws IOException, InterruptedException {
 		Encoder encoder = new Encoder(args);
 		encoder.encode();

@@ -50,8 +50,8 @@ public class DecoderClient {
 	private String fileName;
 
 	// Constructor
-	public DecoderClient(String[] args) throws Exception {
-		this.fileName = args[0];
+	public DecoderClient(String fileName) throws Exception {
+		this.fileName = fileName;
 	}
 
 	// Client run method
@@ -78,13 +78,13 @@ public class DecoderClient {
 
 		// Set up resource requirements, priority and queue
 		Resource capability = Records.newRecord(Resource.class);
-		capability.setMemory(Defines.amMemory);
-		capability.setVirtualCores(Defines.amVCores);
+		capability.setMemory(Defines.applicationMasterMemory);
+		capability.setVirtualCores(Defines.applicationMasterVCores);
 		appContext.setResource(capability);
 		Priority pri = Records.newRecord(Priority.class);
-		pri.setPriority(Defines.amPriority);
+		pri.setPriority(Defines.applicationNasterPriority);
 		appContext.setPriority(pri);
-		appContext.setQueue(Defines.amQueue);
+		appContext.setQueue(Defines.applicationMasterQueue);
 				
 		// Set container for context
 		appContext.setAMContainerSpec(amContainer);
@@ -124,7 +124,7 @@ public class DecoderClient {
 		vargs.add(Environment.JAVA_HOME.$$() + "/bin/java");
 		
 		// Java virtual machine args
-		vargs.add("-Xmx" + Defines.amMemory + "m");
+		vargs.add("-Xmx" + Defines.applicationMasterMemory + "m");
 		
 		// Class to execute
 		vargs.add(ApplicationMaster.class.getName());

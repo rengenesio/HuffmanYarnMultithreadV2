@@ -481,7 +481,7 @@ public class ApplicationMaster {
 			numAllocatedContainers.addAndGet(allocatedContainers.size());
 			for (Container allocatedContainer : allocatedContainers) {
 				LOG.info("Launching shell command on a new container." + ", containerId=" + allocatedContainer.getId() + ", containerNode=" + allocatedContainer.getNodeId().getHost() + ":" + allocatedContainer.getNodeId().getPort() + ", containerNodeURI=" + allocatedContainer.getNodeHttpAddress() + ", containerResourceMemory" + allocatedContainer.getResource().getMemory()+ ", containerResourceVirtualCores" + allocatedContainer.getResource().getVirtualCores());
-				System.out.println("ContainerId= " + allocatedContainer.getId() + ", containerNode= " + allocatedContainer.getNodeId().getHost() + ":" + allocatedContainer.getNodeId().getPort() + ", containerResourceMemory" + allocatedContainer.getResource().getMemory()+ ", containerResourceVirtualCores" + allocatedContainer.getResource().getVirtualCores());
+				//System.out.println("ContainerId= " + allocatedContainer.getId() + ", containerNode= " + allocatedContainer.getNodeId().getHost() + ":" + allocatedContainer.getNodeId().getPort() + ", containerResourceMemory" + allocatedContainer.getResource().getMemory()+ ", containerResourceVirtualCores" + allocatedContainer.getResource().getVirtualCores());
 				LaunchContainerRunnable runnableLaunchContainer = new LaunchContainerRunnable(allocatedContainer, containerListener);
 				Thread launchThread = new Thread(runnableLaunchContainer);
 
